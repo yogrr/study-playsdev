@@ -6,33 +6,68 @@ ARG BUILD_PLATFORM=linux/amd64
 #
 FROM --platform=${BUILD_PLATFORM} nginx:${BASE_IMAGE_VER} AS base_image
 
-ENV DOMAIN=${DOMAIN:-localhost}
+ENV DOMAIN=${DOMAIN:-illusior.ru}
+ENV HOSTNAME_APACHE=${HOSTNAME_APACHE:-apache}
+ENV PORT_APACHE=${PORT_APACHE:-8080}
+ENV PORT=${PORT:-${PORT_NGINX:-80}}
 
 RUN rm /etc/nginx/conf.d/default.conf
 COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
 COPY ./nginx/conf.d/ /etc/nginx/conf.d/
+
 COPY ./nginx/html/ /usr/share/nginx/html/
+RUN chown -R nginx:nginx /usr/share/nginx/html/
 
 COPY ./nginx/templates/ /etc/nginx/templates/
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/tmp/nginx/conf.d/
 
-EXPOSE ${PORT:-${PORT_NGINX}}
+EXPOSE ${PORT}
 EXPOSE 443
 
-VOLUME /usr/share/nginx/html/
-VOLUME /etc/nginx/
+COPY ./nginx/cert/fullchain.pem/ /etc/letsencrypt/live/${DOMAIN}/fullchain.pem
+COPY ./nginx/cert/privkey.pem/ /etc/letsencrypt/live/${DOMAIN}/privkey.pem
 VOLUME /etc/letsencrypt/
 
 USER nginx
 RUN mkdir -p ${NGINX_ENVSUBST_OUTPUT_DIR}
 
-#
-#
-#
-FROM base_image AS with_local_certs
 
-COPY ./nginx/conf.d/default.conf.openssl /etc/nginx/conf.d/default.conf
+#
+#
+#
+FROM --platform=${BUILD_PLATFORM} alpine:3.21.3 AS yc_nginx_secret_updater
 
-# for fullchain.pem and privkey.pem if you using localhost
-COPY fullchain.pem /etc/letsencrypt/live/${DOMAIN}/
-COPY privkey.pem /etc/letsencrypt/live/${DOMAIN}/
+RUN apk add \
+    curl \
+    bash \
+    apache2-utils
+
+RUN curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+ENV PATH="/root/yandex-cloud/bin:${PATH}"
+
+COPY ./nginx-auth/key.json /root/yandex-cloud/key.json
+RUN yc config set service-account-key /root/yandex-cloud/key.json && \
+    yc config set cloud-id b1g5b020anchqspg6qul && \
+    yc config set folder-id b1gs55f7ueeslt3ok3d5
+
+RUN mkdir /scripts
+COPY ./nginx-auth/yc-update-htpasswd.sh /scripts/
+RUN chmod +x /scripts/yc-update-htpasswd.sh
+RUN . /scripts/yc-update-htpasswd.sh
+
+#
+#
+#
+FROM --platform=${BUILD_PLATFORM} nginx:${BASE_IMAGE_VER} AS auth_image
+
+RUN rm /etc/nginx/conf.d/default.conf
+COPY ./nginx-auth/nginx.conf /etc/nginx/nginx.conf
+COPY ./nginx-auth/conf.d/ /etc/nginx/conf.d/
+
+RUN mkdir -p /etc/nginx/keys
+COPY ./nginx-auth/keys/.htpasswd /etc/nginx/keys/
+
+ENV NGINX_ENVSUBST_OUTPUT_DIR=/tmp/nginx/conf.d/
+
+USER nginx
+RUN mkdir -p ${NGINX_ENVSUBST_OUTPUT_DIR}

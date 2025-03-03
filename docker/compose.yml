@@ -18,13 +18,14 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/conf.d/:/etc/nginx/conf.d/
       - ./nginx/html/:/usr/share/nginx/html/
-
-      - ./certbot/conf/:/etc/letsencrypt/
-      - ./certbot/www/:/var/www/certbot/
       #
+      # TODO: add auto ssl configuration with certbot
+      # - ./certbot/conf/:/etc/letsencrypt/
+      # - ./certbot/www/:/var/www/certbot/
+
       # you must provide this if you want to use your own ssl certs (e.g openssl)
-      # - ./fullchain.pem/:/etc/letsencrypt/live/${DOMAIN}/fullchain.pem
-      # - ./privkey.pem/:/etc/letsencrypt/live/${DOMAIN}/privkey.pem
+      # - ./nginx/cert/fullchain.pem/:/etc/letsencrypt/live/${DOMAIN}/fullchain.pem
+      # - ./nginx/cert/privkey.pem/:/etc/letsencrypt/live/${DOMAIN}/privkey.pem
 
   apache:
     networks:

@@ -1,0 +1,6 @@
+# for local apache server as container (or k8s service) with name apache
+location /apache/ {
+    rewrite ^/apache/(.*)$ /$1 break;
+
+    proxy_pass http://${HOSTNAME_APACHE}:${PORT_APACHE};
+}

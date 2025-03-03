@@ -2,3 +2,5 @@ certbot/
 
 *.pem
 .env
+
+**/key.json

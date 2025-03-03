@@ -1,7 +1,7 @@
 yc_hosts:
   hosts:
     ubuntu:
-      ansible_host: 84.201.155.51
+      ansible_host: 84.201.138.46
     # ubuntu-2:
     #   ansible_host: 51.250.98.34
     # fedora:
